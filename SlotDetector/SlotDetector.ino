@@ -25,7 +25,7 @@ void setup() {
  digitalWrite(Button, LOW);
 
  LastSlotDigital = digitalRead(outputSlot);
- Serial.println("Angle,Time");
+ Serial.println("Angle, Time");
 }
 
 void loop() {
@@ -55,7 +55,7 @@ void loop() {
 
    //This will stop the motor at the certain angle
    if ( 28 < Angle < 32 ){
-     //digitalWrite(Enable,LOW);
+     digitalWrite(Enable,LOW);
      //Serial.end();
      }
  }
