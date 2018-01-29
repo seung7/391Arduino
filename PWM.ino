@@ -1,9 +1,9 @@
 /*  Arduino DC Motor Control - PWM | H-Bridge | L298N  -  Example 01
     by Dejan Nedelkovski, www.HowToMechatronics.com
 */
-const int enA=9; //Enabling pin for the motor
-const int in1=4; //Digital output1
-const int in2=5; //Digital output2
+const int enA=10; //Enabling pin for the motor
+const int in1=3; //Digital output1
+const int in2=4; //Digital output2
 const int button=3; //This button will change the direction of the motor
 int rotDirection = 0;
 int pressed = 0;
@@ -21,6 +21,10 @@ void setup() {
   //digitalWrite(button, LOW);
  
   digitalWrite(enA, HIGH); // Enable is always on
+  pwmPercentage=10; // Set the power input in percentage for the motor
+  pwmValue= pwmPercentage * (255/100); // Convert percentage to Analaoge input which ranges from 0 to 255
+  analogWrite(enA,pwmValue); // Send PWM to L298N Enable pin
+  
 }
 void loop() {
   int in1state = digitalRead(in1);
@@ -50,10 +54,7 @@ void loop() {
   // Read button - Debounce
 
   
-  pwmPercentage=100; // Set the power input in percentage for the motor
-  pwmValue= pwmPercentage * (255/100); // Convert percentage to Analaoge input which ranges from 0 to 255
-  analogWrite(enA,pwmValue); // Send PWM to L298N Enable pin
-  
+ 
   
   */
 }
