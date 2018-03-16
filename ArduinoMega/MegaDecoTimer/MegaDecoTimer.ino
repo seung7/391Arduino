@@ -18,11 +18,15 @@ long the_time_now = 0;
 long the_count_now = 0;
 int toggle0 = 0;
 
+/*Timer for PWM Clock */
+#define PWM_clockout 2;
+#define PID_clockout 44;
+
 /* Motors */
 
 #define M0_EN   4
-#define M0_DIR1 2
-#define M0_DIR2 3
+#define M0_DIR1 22
+#define M0_DIR2 23
 int M0_DIR = 1;
 #define M1_EN   7
 #define M1_DIR1 5
@@ -35,19 +39,46 @@ int M1_DIR = 0;
 void read_and_store_decoder_data() {
 
  result0 = PINF & B11111111;
+ //byte slotnumber = result0;
+ //Serial.print (PINF);
  
+ //Serial.print ( " The slotnumber: ");
+ //Serial.print (slotnumber);
  if ( prev_result0 != result0 ){
   the_count_now++;
   prev_result0 = result0;
+ }
+  Serial.println(the_count_now);
+  
+ if( the_count_now > 127) { 
+  the_count_now = 0;
+
+   
+   
+   if(M0_DIR) {
+    M0_DIR = 0;}
+    else {
+    M0_DIR = 1;
+    }
+
+  
+  Serial.print(M0_DIR);
+  M0_change_dir();
+ }
+ 
+  
+ 
   //Serial.print( result0 , BIN);          // Motor 0 Angular Position
   //Serial.print( " " );
+  /*
   Serial.print( the_time_now );
   Serial.print( " " );
   Serial.print( the_count_now );
   Serial.print( " " );
   Serial.print( result0 );          // Motor 0 Angular Position
   Serial.println();
- }
+  */
+ 
 }
  
 
@@ -66,7 +97,7 @@ void reset_decoders() {
 }
 
 
-/* Output 8 MHz on OC4C (Port H, Pin 5 aka PWM/Digital 8) */
+/* Output 8 MHz on OC4C (Port H, Pin 5 aka PWM/Digital 8). Using timer4 */
 void setup_decoder_clock() {
   pinModeFast (Decoder_ClockOut, OUTPUT);
   TCCR4A = 0;
@@ -104,6 +135,8 @@ ISR(TIMER1_COMPA_vect){
  the_time_now++;
  }
 
+
+
 void setup_motors() {
  pinModeFast (M0_EN,OUTPUT);
  pinModeFast (M0_DIR1,OUTPUT);
@@ -111,6 +144,7 @@ void setup_motors() {
  pinModeFast (M1_EN,OUTPUT);
  pinModeFast (M1_DIR1,OUTPUT);
  pinModeFast (M1_DIR1,OUTPUT);
+ 
 }
 
 void M0_start() {
