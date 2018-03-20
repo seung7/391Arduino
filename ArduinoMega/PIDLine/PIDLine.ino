@@ -1,4 +1,4 @@
-/*this code rotates motor's rotor by 45 degree and stop. PID is used to minimize the settle time.*/
+/*this code makes the motor to rotates 45 back and forth. PID is used to minimize the settle time.*/
 
 #include <digitalWriteFast.h>  // https://github.com/NicksonYap/digitalWriteFast
 #include "Arduino.h"
@@ -21,6 +21,7 @@ long ActualCount= 0;
 long the_time_now = 0;
 long the_count_now = 0;
 int toggle0 = 0;
+
 /*Timer for PWM Clock */
 #define PWM_clockout 2
 #define PID_clockout 44
@@ -40,7 +41,9 @@ double lastErr= 0.0;
 unsigned long lastTime =0;
 double kp=1.1, ki=0, kd=0.03225;
 int PWM_pid;
-const int DesireCount = 50; //half cycle 50/400 *360 = 45degree
+int DesireCount = 50; //half cycle 50/400 *360 = 45degree
+const int DesireCount1 = 50;
+const int DesireCount2 = 0;
 
  
 /****************** SUBROUTINES ********************/
@@ -138,7 +141,7 @@ void setup_decoder_clock() {
  * 1 full rotation has 400 slots. so it gives 33.333*400 = 13,333Hz
  * Thus the timer should be bigger than 13,333Hz. 50KHz is set for that reason.
  */
-void setup_50KHz_timer() {
+/*void setup_50KHz_timer() {
 //set timer1 interrupt at 50KHz
  TCCR1A = 0;// set entire TCCR1A register to 0
  TCCR1A |= (1 << COM1A0);  // toggle OC1A on Compare Matc
@@ -159,7 +162,30 @@ void setup_50KHz_timer() {
 ISR(TIMER1_COMPA_vect){
  the_time_now++;
  }
+*/
 
+/*timer 1 is being used to change the desire point*/
+void setup_1Hz_timer(){
+TCCR1A = 0;// set entire TCCR1A register to 0
+  TCCR1B = 0;// same for TCCR1B
+  TCNT1  = 0;//initialize counter value to 0
+  // set compare match register for 1hz increments
+  OCR1A = 15624;// = (16*10^6) / (1*1024) - 1 (must be <65536)
+  // turn on CTC mode
+  TCCR1B |= (1 << WGM12);
+  // Set CS10 and CS12 bits for 1024 prescaler
+  TCCR1B |= (1 << CS12) | (1 << CS10);  
+  // enable timer compare interrupt
+  TIMSK1 |= (1 << OCIE1A);
+}
+
+
+//Change the direction of the motor every 1hz
+ISR(TIMER1_COMPA_vect){
+ 
+DesireCount = (DesireCount != DesireCount1 ? DesireCount1 : DesireCount2); 
+ 
+ }
 
 /*3KHz timer is for the PWM Clock. Timer 3*/
 void setup_3KHz_timer() {
@@ -242,12 +268,12 @@ void setup() {
  
 //This will be clock frequency (Sampling Frequecy) for decoder. The expected frequency for the encoder is ~13kHz. 1MHz >> 13KHz, and the decoder should collect the data correctly.
  setup_decoder_clock(); 
- setup_50KHz_timer();
+ //setup_50KHz_timer();
  setup_decoder_8bit_input();
  reset_decoders();
  setup_300Hz_timer();
  setup_3KHz_timer();
-
+ setup_1Hz_timer();
  setup_motors();
  M0_start();
  
