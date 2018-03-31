@@ -39,7 +39,8 @@ int M1_DIR = 0;
 double error, errSum, dErr;
 double lastErr= 0.0;
 unsigned long lastTime =0;
-double kp=1.1, ki=0, kd=0.03225;
+double kp=0.1465, ki=0.4813, kd=0.008183;
+//double kp=1.1, ki=0, kd=0.03225;
 int PWM_pid;
 int DesireCount = 0; //half cycle 50/400 *360 = 45degree
 const int DesireCount1 = 50;
@@ -88,7 +89,7 @@ int pidController(int outputval, int desire, int actual){
    /*Compute PID Output*/
    output = kp * error + kd * dErr;
    //Serial.println(output);
-   output= abs(output*23); //14 is pid constant value -> update the value in the future.
+   output= abs(output*10); //14 is pid constant value -> update the value in the future.
    //Serial.println(output);
    /*Remember some variables for next time*/
    lastErr = error;
@@ -182,17 +183,21 @@ TCCR1A = 0;// set entire TCCR1A register to 0
 
 //Change the direction of the motor every 1hz
 ISR(TIMER1_COMPA_vect){
-
+ Serial.print("Flag is");
+ Serial.println(flag);
+ Serial.print("Deisre count is");
+ Serial.println(DesireCount);
   if(flag=1) {
     DesireCount +=45;
-    if(DesireCount >270) 
+    if(DesireCount >240) 
     flag=0;
   }
   else {
     DesireCount -=45;
-    if(DesireCount<10)
+    if(DesireCount<30)
     flag=1;
   }
+  
 
  }
 

@@ -38,7 +38,8 @@ int M1_DIR = 0;
 double error, errSum, dErr;
 double lastErr= 0.0;
 unsigned long lastTime =0;
-double kp=1.1, ki=0, kd=0.03225;
+double kp=0.1465, ki=0.4813, kd=0.008183;
+//double kp=1.1, ki=0, kd=0.03225; this sis the actual PID value we need to use
 int PWM_pid;
 const int DesireCount = 50; //half cycle 50/400 *360 = 45degree
 

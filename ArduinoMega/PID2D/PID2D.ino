@@ -22,7 +22,7 @@ long the_time_now = 0;
 long the_count_now = 0;
 int toggle0 = 0;
 
-/*Timer for PWM Clock */
+/*Timer  PWM Clock */
 #define PWM_clockout 2
 #define PID_clockout 44
 
@@ -46,16 +46,20 @@ int DesireCount = 50; //half cycle 50/400 *360 = 45degree
 const int DesireCount1 = 90;
 const int DesireCount2 = 40;
 
- 
+
+
+//Define ActualCount globally
 /****************** SUBROUTINES ********************/
 void read_and_store_decoder_data() {
   
  result0 = PINF & B11111111;
- if ( prev_result0 != result0 ){
+  if ( prev_result0 > result0 ){
   ActualCount++;
-  ActualCount = ActualCount % 400;
-  prev_result0 = result0;
- }
+  }
+  
+ActualCount = ActualCount % 400;
+prev_result0 = result0;
+//Serial.println(ActualCount);
 
 }
 
@@ -89,7 +93,7 @@ int pidController(int outputval, int desire, int actual){
    /*Compute PID Output*/
    output = kp * error + kd * dErr;
    //Serial.println(output);
-   output = abs(output*23);
+   output = abs(output*12);
    //output= abs(output*23); //14 is pid constant value -> update the value in the future.
    //Serial.println(output);
    /*Remember some variables for next time*/
@@ -173,7 +177,7 @@ TCCR1A = 0;// set entire TCCR1A register to 0
   TCNT1  = 0;//initialize counter value to 0
   // set compare match register for 1hz increments
   
-  OCR1A = 1562;
+  OCR1A = 15624;
   //OCR1A = 15624;// = (16*10^6) / (1*1024) - 1 (must be <65536)
   
   // turn on CTC mode
@@ -184,11 +188,33 @@ TCCR1A = 0;// set entire TCCR1A register to 0
   TIMSK1 |= (1 << OCIE1A);
 }
 
+/*define variables globally
+This will draw a circle
+Slot # being used is [100, 150]
+*/
+
+//X represents X coordinates and bottom motor(m1),
+//Y represents Y coordinates and top motor(m0)
+float CircleArrayX[] = 25* {2, 1.866, 1.5, 1, 0.5, 0.144, 0, 0.144, 0.5, 1, 1.5, 1.866, 2} +100;
+float CircleArrayY[] = 25* {1, 1.5, 1,866, 2, 1.866, 0.5, 1, 0.5, 0.144, 0, 0.144, 0.5, 1} +100;
+
+//CircleArrayX[] = 50/2 * CircleArrayX[] +100;
+//CircleArrayY[] = 50/2 * CircleArrayY[] +100;
 
 //Change the direction of the motor every 1hz
 ISR(TIMER1_COMPA_vect){
+
+if (i < sizeof(InputArray)/sizeof(InputArray[0])){
+  DesireCount = InputArray[i]; 
+  i++;
+}
+else
+  i = 0;
+
+//Serial.print(i);
+
  
-DesireCount = (DesireCount != DesireCount1 ? DesireCount1 : DesireCount2); 
+//DesireCount = (DesireCount != DesireCount1 ? DesireCount1 : DesireCount2); 
  
  }
 
