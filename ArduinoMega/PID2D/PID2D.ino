@@ -4,11 +4,13 @@
 #include "Arduino.h"
 
 /* PWM */
-#define pwmEna 10 //Enabling pin for the motor
+#define M0_EN 10 //Enabling pin for the motor0 buttom motor
+#define M1_EN 1 //Enabling pin for the motor1
 
 /* Decoders */
 #define RESET_Q0 52
-#define Decoder_ClockOut 8
+#define RESET_Q1 53
+#define Decoder_ClockOut 8 //Decoder1 & 2 share same Clockout
 #define Timer_ClockOut 11
 
 byte result0 = 0;
@@ -29,11 +31,12 @@ int toggle0 = 0;
 /* Motors */
 #define M0_DIR1 23
 #define M0_DIR2 22
+
+#define M1_DIR1 24
+#define M1_DIR2 25
+
 int M0_DIR = 1;
-#define M1_EN   7
-#define M1_DIR1 5
-#define M1_DIR2 6
-int M1_DIR = 0;
+int M1_DIR = 1;
 
 /* PID */
 double error, errSum, dErr;
@@ -41,11 +44,15 @@ double lastErr= 0.0;
 unsigned long lastTime =0;
 double kp=0.1465, ki=0.4813, kd=0.008183;
 //double kp=1.1, ki=0, kd=0.03225;
-int PWM_pid;
-int DesireCount = 50; //half cycle 50/400 *360 = 45degree
-const int DesireCount1 = 90;
-const int DesireCount2 = 40;
+int PWM_pidM0;
+int PWM_pidM1;
+int DesireCountM0 = 50; //half cycle 50/400 *360 = 45degree
+const int DesireCountM0_1 = 90;
+const int DesireCountM0_2 = 40;
 
+int DesireCountM1 = 50;
+const int DesireCountM1_1 = 90;
+const int DesireCountM1_2 = 40;
 
 
 //Define ActualCount globally
@@ -63,14 +70,20 @@ prev_result0 = result0;
 
 }
 
-
+/*M0_start(), M1_start() make motor to rotate clockwise when it starts*/
 void M0_start() {
- digitalWrite(pwmEna, HIGH);
+ digitalWrite(M0_EN, HIGH);
  digitalWrite(M0_DIR1, (M0_DIR) ? HIGH : LOW); //BEGIN WITH MO_DIR1=HIGH, CLOCKWISE DIRECTION
  digitalWrite(M0_DIR2, (!M0_DIR) ? HIGH : LOW);
 }
 
+void M1_start() {
+ digitalWrite(M1_EN, HIGH);
+ digitalWrite(M1_DIR1, (M1_DIR) ? HIGH : LOW); //BEGIN WITH MO_DIR1=HIGH, CLOCKWISE DIRECTION
+ digitalWrite(M1_DIR2, (!M1_DIR) ? HIGH : LOW);
+}
 
+/*This functino is no longer used*/
 void M0_change_dir() {
  digitalWrite(M0_DIR1, (M0_DIR) ? HIGH : LOW);
  digitalWrite(M0_DIR2, (!M0_DIR) ? HIGH : LOW);
@@ -93,7 +106,7 @@ int pidController(int outputval, int desire, int actual){
    /*Compute PID Output*/
    output = kp * error + kd * dErr;
    //Serial.println(output);
-   output = abs(output*12);
+   output = abs(output*1);
    //output= abs(output*23); //14 is pid constant value -> update the value in the future.
    //Serial.println(output);
    /*Remember some variables for next time*/
@@ -110,24 +123,32 @@ int pidController(int outputval, int desire, int actual){
 
 /****************** SETUP ********************/
 void setup_motors() {
- //pinModeFast (M0_EN,OUTPUT);
- pinModeFast (M0_DIR1,OUTPUT);
- pinModeFast (M0_DIR1,OUTPUT);
+ pinModeFast (M0_EN,OUTPUT); // set PWM enable pinmode as output
  pinModeFast (M1_EN,OUTPUT);
+ pinModeFast (M0_DIR1,OUTPUT);
+ pinModeFast (M0_DIR1,OUTPUT);
+
  pinModeFast (M1_DIR1,OUTPUT);
- pinModeFast (M1_DIR1,OUTPUT);
- pinModeFast (pwmEna, OUTPUT); //set the PWM enable pinmode as output
+ pinModeFast (M1_DIR2,OUTPUT);
+
+ 
 }
 
 
 void setup_decoder_8bit_input() {
  pinModeFast (RESET_Q0, OUTPUT);
+ pinModeFast (RESET_Q1, OUTPUT);
 }
 
 void reset_decoders() {
  digitalWriteFast(RESET_Q0, LOW);
  delay(5);
  digitalWriteFast(RESET_Q0, HIGH);
+
+ digitalWriteFast(RESET_Q1, LOW);
+ delay(5);
+ digitalWriteFast(RESET_Q1, HIGH);
+ 
 }
 
 
@@ -193,6 +214,7 @@ This will draw a circle
 Slot # being used is [100, 150]
 */
 
+/*
 //X represents X coordinates and bottom motor(m1),
 //Y represents Y coordinates and top motor(m0)
 float CircleArrayX[] = 25* {2, 1.866, 1.5, 1, 0.5, 0.144, 0, 0.144, 0.5, 1, 1.5, 1.866, 2} +100;
@@ -202,10 +224,12 @@ float CircleArrayY[] = 25* {1, 1.5, 1,866, 2, 1.866, 0.5, 1, 0.5, 0.144, 0, 0.14
 //CircleArrayY[] = 50/2 * CircleArrayY[] +100;
 
 //Change the direction of the motor every 1hz
+*/
 ISR(TIMER1_COMPA_vect){
 
+/*
 if (i < sizeof(InputArray)/sizeof(InputArray[0])){
-  DesireCount = InputArray[i]; 
+  DesireCountM0 = InputArray[i]; 
   i++;
 }
 else
@@ -213,9 +237,9 @@ else
 
 //Serial.print(i);
 
- 
-//DesireCount = (DesireCount != DesireCount1 ? DesireCount1 : DesireCount2); 
- 
+*/ 
+DesireCountM0 = (DesireCountM0 != DesireCountM0_1 ? DesireCountM0_1 : DesireCountM0_2); 
+DesireCountM1 = (DesireCountM1 != DesireCountM1_1 ? DesireCountM1_1 : DesireCountM1_2);
  }
 
 /*3KHz timer is for the PWM Clock. Timer 3*/
@@ -238,7 +262,9 @@ void setup_3KHz_timer() {
 
 ISR(TIMER3_COMPA_vect){
  
- analogWrite(pwmEna, PWM_pid);
+ analogWrite(M0_EN, PWM_pidM0);
+ analogWrite(M1_EN, PWM_pidM1);
+ 
  
  }
 
@@ -272,23 +298,34 @@ void setup_300Hz_timer() {
  */
 ISR(TIMER5_COMPA_vect){
  
- Serial.println(PINF);
- 
- if( PINF >  DesireCount ) {
- 
- //analogWrite(pwmEna, 0);
-  //digitalWriteFast (M0_EN, LOW);
-  digitalWrite (M0_DIR1, LOW);
-  digitalWrite (M0_DIR2, HIGH);
+ Serial.println(PINK);
+
+ //Logic for M0 (Buttom motor)
+ if( PINF >  DesireCountM0 ) {
+ //analogWrite(M0_EN, 0);
+ digitalWrite (M0_DIR1, LOW);
+ digitalWrite (M0_DIR2, HIGH);
  }
  else{
  digitalWrite (M0_DIR1, HIGH);
  digitalWrite (M0_DIR2, LOW);
  }
+
+
+ //Logic for M1(Top motor)
+  if( PINK > DesireCountM1) {
+  digitalWrite (M1_DIR1, LOW);
+  digitalWrite (M1_DIR2, HIGH);
+  }
+  else{
+  digitalWrite (M1_DIR1, HIGH);
+  digitalWrite (M1_DIR2, LOW);
+  }
  
- PWM_pid = pidController(PWM_pid, DesireCount, PINF); // 1rotation = 400 counts
+ PWM_pidM0 = pidController(PWM_pidM0, DesireCountM0, PINF); // rotation = 400 counts
+ PWM_pidM1 = pidController(PWM_pidM1, DesireCountM1, PINK); // 1rotation = 400 counts
   
- }
+}
 
 
  /**************** MAIN ****************/
@@ -307,7 +344,7 @@ void setup() {
  setup_1Hz_timer();
  setup_motors();
  M0_start();
- 
+ M1_start();
  sei(); //allow interrupts
 }
 
@@ -316,5 +353,3 @@ void loop() {
  
 }
 
-
-  
