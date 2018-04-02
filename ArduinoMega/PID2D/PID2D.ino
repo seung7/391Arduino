@@ -1,11 +1,11 @@
 /*this code makes the motor to rotates 45 back and forth. PID is used to minimize the settle time.*/
-
+/*info: commercial motor must be more than 3V*/
 #include <digitalWriteFast.h>  // https://github.com/NicksonYap/digitalWriteFast
 #include "Arduino.h"
 
 /* PWM */
-#define M0_EN 10 //Enabling pin for the motor0 buttom motor
-#define M1_EN 1 //Enabling pin for the motor1
+#define M0_EN 2 //Enabling pin for the motor0 buttom motor
+#define M1_EN 3 //Enabling pin for the motor1
 
 /* Decoders */
 #define RESET_Q0 52
@@ -53,7 +53,7 @@ const int DesireCountM0_2 = 40;
 int DesireCountM1 = 50;
 const int DesireCountM1_1 = 90;
 const int DesireCountM1_2 = 40;
-
+int i = 0;
 
 //Define ActualCount globally
 /****************** SUBROUTINES ********************/
@@ -106,7 +106,9 @@ int pidController(int outputval, int desire, int actual){
    /*Compute PID Output*/
    output = kp * error + kd * dErr;
    //Serial.println(output);
-   output = abs(output*1);
+   output = abs(output*50);
+   //Mutliply 50 for top motor
+   //multiply small number for buttom motor
    //output= abs(output*23); //14 is pid constant value -> update the value in the future.
    //Serial.println(output);
    /*Remember some variables for next time*/
@@ -114,6 +116,11 @@ int pidController(int outputval, int desire, int actual){
    lastTime = now;
 
    int x = constrain(output, 0, 255);
+   if(-5 <error < 5)
+   x = 0;
+   if (x < 125) // this prevent the value become less than 3v
+   x=125;
+   
    return x;
   
 }
@@ -198,7 +205,8 @@ TCCR1A = 0;// set entire TCCR1A register to 0
   TCNT1  = 0;//initialize counter value to 0
   // set compare match register for 1hz increments
   
-  OCR1A = 15624;
+  //OCR1A = 15624;
+  OCR1A = 31248;
   //OCR1A = 15624;// = (16*10^6) / (1*1024) - 1 (must be <65536)
   
   // turn on CTC mode
@@ -225,26 +233,55 @@ float CircleArrayY[] = 25* {1, 1.5, 1,866, 2, 1.866, 0.5, 1, 0.5, 0.144, 0, 0.14
 
 //Change the direction of the motor every 1hz
 */
+int ArrayX[] = {60, 10, 60, 10};
+int ArrayY[] = {10, 60, 10, 60};
 ISR(TIMER1_COMPA_vect){
 
-/*
-if (i < sizeof(InputArray)/sizeof(InputArray[0])){
-  DesireCountM0 = InputArray[i]; 
-  i++;
+
+
+ 
+if (i < sizeof(ArrayX)/sizeof(ArrayX[0])){
+// nothing
 }
-else
+else{
   i = 0;
+}
 
-//Serial.print(i);
+//Serial.print("i: ");
+//Serial.println(i);
+//Serial.print("DesireCountM0: ");
+//Serial.println(DesireCountM0);
 
-*/ 
-DesireCountM0 = (DesireCountM0 != DesireCountM0_1 ? DesireCountM0_1 : DesireCountM0_2); 
-DesireCountM1 = (DesireCountM1 != DesireCountM1_1 ? DesireCountM1_1 : DesireCountM1_2);
- }
+DesireCountM0 = ArrayX[i];
+DesireCountM1 = ArrayY[i];
+i++;
+
+
+
+
+
+//DesireCountM1 = 45;
+DesireCountM0 = 45;
+//DesireCountM0 = (DesireCountM0 != DesireCountM0_1 ? DesireCountM0_1 : DesireCountM0_2); 
+//DesireCountM1 = (DesireCountM1 != DesireCountM1_1 ? DesireCountM1_1 : DesireCountM1_2);
+}
 
 /*3KHz timer is for the PWM Clock. Timer 3*/
+
+/* ------------------------------------------------------------------
+ * setup_PWM_timer()
+ * ------------------------------------------------------------------
+ * Uses TIMER3
+ * PURPOSE: This code block sets the frequency of the PWM signals 
+ *          whose duty cycle is set by the controller to determine 
+ *          power sent to the motors.
+ * DETAILS:
+ *          Set timer 3 divisor to 8 for PWM frequency of 3921.16 Hz
+ *          Keep all other defaults.
+ * ------------------------------------------------------------------ */
+/*3KHz timer is for the PWM Clock. Timer 3*/
 void setup_3KHz_timer() {
- 
+ /*
  TCCR3A = 0;// set entire TCCR1A register to 0
  TCCR3A |= (1 << COM3B0);  // toggle OC1A on Compare Matc
  pinModeFast (PWM_clockout, OUTPUT);
@@ -258,12 +295,16 @@ void setup_3KHz_timer() {
   TCCR3B |= (1 << CS30);  
   // enable timer compare interrupt
   TIMSK3 |= (1 << OCIE3A); 
+  */
+  TCCR3B = TCCR3B & B11111000 | B00000010;
+  TIMSK3 |= (1 << OCIE3A);       // Enable timer compare interrupt
 }
 
 ISR(TIMER3_COMPA_vect){
- 
  analogWrite(M0_EN, PWM_pidM0);
  analogWrite(M1_EN, PWM_pidM1);
+ //analogWrite(M0_EN, PWM_pidM0);
+ //analogWrite(M1_EN, PWM_pidM1);
  
  
  }
@@ -275,7 +316,6 @@ ISR(TIMER3_COMPA_vect){
  */
 void setup_300Hz_timer() {
 
- 
  TCCR5A = 0;// set entire TCCR1A register to 0
  TCCR5A |= (1 << COM5C0);  // toggle OC1A on Compare Matc
  pinModeFast (PID_clockout, OUTPUT);
@@ -297,8 +337,11 @@ void setup_300Hz_timer() {
  *  However, this new PWM value is not updated to the next tick of PWM Clock.
  */
 ISR(TIMER5_COMPA_vect){
- 
+
+ Serial.print("PINK: ");
  Serial.println(PINK);
+ Serial.print("PINF: ");
+ Serial.print(PINF);
 
  //Logic for M0 (Buttom motor)
  if( PINF >  DesireCountM0 ) {
@@ -313,7 +356,12 @@ ISR(TIMER5_COMPA_vect){
 
 
  //Logic for M1(Top motor)
-  if( PINK > DesireCountM1) {
+
+  if(PINK >200){
+  digitalWrite(M1_DIR1, HIGH);
+  digitalWrite(M1_DIR2, LOW);
+  }
+  else if( PINK > DesireCountM1) {
   digitalWrite (M1_DIR1, LOW);
   digitalWrite (M1_DIR2, HIGH);
   }
@@ -350,6 +398,6 @@ void setup() {
 
 void loop() {
  read_and_store_decoder_data();
- 
+
 }
 

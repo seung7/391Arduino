@@ -4,7 +4,7 @@
 #include "Arduino.h"
 
 /* PWM */
-#define pwmEna 10 //Enabling pin for the motor
+#define pwmEna 2 //Enabling pin for the motor
 
 /* Decoders */
 #define RESET_Q0 52
@@ -89,7 +89,7 @@ int pidController(int outputval, int desire, int actual){
    /*Compute PID Output*/
    output = kp * error + kd * dErr;
    //Serial.println(output);
-   output = abs(output*23);
+   output = abs(output*14);
    //output= abs(output*23); //14 is pid constant value -> update the value in the future.
    //Serial.println(output);
    /*Remember some variables for next time*/
