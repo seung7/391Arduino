@@ -1,5 +1,7 @@
 /*this code makes the motor to rotates 45 back and forth. PID is used to minimize the settle time.*/
 /*info: commercial motor must be more than 3V*/
+/*Right is postivie, Left is negative (0->127, -127,-0)*/
+
 #include <digitalWriteFast.h>  // https://github.com/NicksonYap/digitalWriteFast
 #include "Arduino.h"
 
@@ -12,6 +14,8 @@
 #define RESET_Q1 53
 #define Decoder_ClockOut 8 //Decoder1 & 2 share same Clockout
 #define Timer_ClockOut 11
+int8_t CurrentPointM0=PINF;
+int8_t CurrentPointM1=PINK;
 
 byte result0 = 0;
 byte result1 = 0;
@@ -32,8 +36,8 @@ int toggle0 = 0;
 #define M0_DIR1 23
 #define M0_DIR2 22
 
-#define M1_DIR1 24
-#define M1_DIR2 25
+#define M1_DIR1 25
+#define M1_DIR2 24
 
 int M0_DIR = 1;
 int M1_DIR = 1;
@@ -89,14 +93,18 @@ void M0_change_dir() {
  digitalWrite(M0_DIR2, (!M0_DIR) ? HIGH : LOW);
 }
 /***************** Functions **********************/
+
+
 int pidController(int outputval, int desire, int actual){
- 
+int x; 
   /*How long since we last calculated*/
    unsigned long now = millis();
    double timeChange = (double)(now - lastTime);
    int output; 
    /*Compute all the working error variables*/
+  
    error = desire - actual;
+   if(abs(error) > 10) {
    //Serial.print("error:");
    //Serial.println(error);
    errSum += (error * timeChange);
@@ -106,7 +114,7 @@ int pidController(int outputval, int desire, int actual){
    /*Compute PID Output*/
    output = kp * error + kd * dErr;
    //Serial.println(output);
-   output = abs(output*50);
+   output = abs(output*20);
    //Mutliply 50 for top motor
    //multiply small number for buttom motor
    //output= abs(output*23); //14 is pid constant value -> update the value in the future.
@@ -114,12 +122,17 @@ int pidController(int outputval, int desire, int actual){
    /*Remember some variables for next time*/
    lastErr = error;
    lastTime = now;
+   
+ 
+   x = constrain(output, 0, 255);
+    if (x < 125){ // this prevent the value become less than 3v
+    x=125;}
+   }
+   
+   else{ 
+   x = 0;}
+   
 
-   int x = constrain(output, 0, 255);
-   if(-5 <error < 5)
-   x = 0;
-   if (x < 125) // this prevent the value become less than 3v
-   x=125;
    
    return x;
   
@@ -206,7 +219,7 @@ TCCR1A = 0;// set entire TCCR1A register to 0
   // set compare match register for 1hz increments
   
   //OCR1A = 15624;
-  OCR1A = 31248;
+  OCR1A = 15624;
   //OCR1A = 15624;// = (16*10^6) / (1*1024) - 1 (must be <65536)
   
   // turn on CTC mode
@@ -233,8 +246,8 @@ float CircleArrayY[] = 25* {1, 1.5, 1,866, 2, 1.866, 0.5, 1, 0.5, 0.144, 0, 0.14
 
 //Change the direction of the motor every 1hz
 */
-int ArrayX[] = {60, 10, 60, 10};
-int ArrayY[] = {10, 60, 10, 60};
+int ArrayX[] = {60, 60, 60, 60};
+int ArrayY[] = {60, 10, 60, 10};
 ISR(TIMER1_COMPA_vect){
 
 
@@ -254,6 +267,7 @@ else{
 
 DesireCountM0 = ArrayX[i];
 DesireCountM1 = ArrayY[i];
+Serial.print(DesireCountM1);
 i++;
 
 
@@ -261,7 +275,7 @@ i++;
 
 
 //DesireCountM1 = 45;
-DesireCountM0 = 45;
+//DesireCountM0 = 45;
 //DesireCountM0 = (DesireCountM0 != DesireCountM0_1 ? DesireCountM0_1 : DesireCountM0_2); 
 //DesireCountM1 = (DesireCountM1 != DesireCountM1_1 ? DesireCountM1_1 : DesireCountM1_2);
 }
@@ -301,8 +315,10 @@ void setup_3KHz_timer() {
 }
 
 ISR(TIMER3_COMPA_vect){
- analogWrite(M0_EN, PWM_pidM0);
- analogWrite(M1_EN, PWM_pidM1);
+ analogWrite(M0_EN, 255);
+ analogWrite(M1_EN, 255);
+ //analogWrite(M0_EN, PWM_pidM0);
+ //analogWrite(M1_EN, PWM_pidM1);
  //analogWrite(M0_EN, PWM_pidM0);
  //analogWrite(M1_EN, PWM_pidM1);
  
@@ -337,14 +353,16 @@ void setup_300Hz_timer() {
  *  However, this new PWM value is not updated to the next tick of PWM Clock.
  */
 ISR(TIMER5_COMPA_vect){
+CurrentPointM0=PINF;
+CurrentPointM1=PINK;
 
  Serial.print("PINK: ");
- Serial.println(PINK);
+ Serial.println(CurrentPointM1);
  Serial.print("PINF: ");
- Serial.print(PINF);
+ Serial.println(CurrentPointM0);
 
  //Logic for M0 (Buttom motor)
- if( PINF >  DesireCountM0 ) {
+ if( CurrentPointM0 >  DesireCountM0 ) {
  //analogWrite(M0_EN, 0);
  digitalWrite (M0_DIR1, LOW);
  digitalWrite (M0_DIR2, HIGH);
@@ -356,12 +374,7 @@ ISR(TIMER5_COMPA_vect){
 
 
  //Logic for M1(Top motor)
-
-  if(PINK >200){
-  digitalWrite(M1_DIR1, HIGH);
-  digitalWrite(M1_DIR2, LOW);
-  }
-  else if( PINK > DesireCountM1) {
+ if( CurrentPointM1 > DesireCountM1) {
   digitalWrite (M1_DIR1, LOW);
   digitalWrite (M1_DIR2, HIGH);
   }
@@ -370,8 +383,8 @@ ISR(TIMER5_COMPA_vect){
   digitalWrite (M1_DIR2, LOW);
   }
  
- PWM_pidM0 = pidController(PWM_pidM0, DesireCountM0, PINF); // rotation = 400 counts
- PWM_pidM1 = pidController(PWM_pidM1, DesireCountM1, PINK); // 1rotation = 400 counts
+ PWM_pidM0 = pidController(PWM_pidM0, DesireCountM0, CurrentPointM0); // rotation = 400 counts
+ PWM_pidM1 = pidController(PWM_pidM1, DesireCountM1, CurrentPointM1); // 1rotation = 400 counts
   
 }
 
